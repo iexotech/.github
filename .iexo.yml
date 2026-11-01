@@ -1,4 +1,0 @@
-tier: docs
-# Waive a contract check with a reason and an end date:
-# waive:
-#   - { id: C12, until: 2027-03-31, why: "Reason" }

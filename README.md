@@ -4,4 +4,4 @@ GitHub uses this repo's files as **defaults for every repo in the IEXO organisat
 
 This repo becomes **public** when pushed, so it holds no confidential content. Profile text must follow the honesty rules: no claims of incorporation, customers or partners until they're true and approved.
 
-**Not ready to push.** The profile needs founder approval, and the company isn't incorporated. Disable Issues on this repo first.
+Keep this repo to community files. It's public, so it can't call IEXO's private workflows.
