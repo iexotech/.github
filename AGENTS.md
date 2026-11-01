@@ -8,6 +8,7 @@ Tier: **docs**. Company rules: `iexotech/handbook`, starting at `engineering/GOL
 - Repo contract: `bash scripts/contract`
 
 ## Boundaries
+- Don't add a product surface, module, service or vendor without a dated founder go. Stop when the written done list is met.
 - No secrets, real personal data or partner material in this repo, in prompts or in logs.
 - No production credentials or production database access for agents.
 - No AI co-author trailers or AI branding.

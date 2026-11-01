@@ -11,4 +11,3 @@ updates:
         patterns: ["*"]
     ignore:
       - dependency-name: "iexotech/*"
-

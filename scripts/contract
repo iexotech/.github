@@ -67,8 +67,12 @@ agent_config_safe() {
   [ -f .claude/settings.json ] && [ ! -f .mcp.json ] || return 1
   ! grep -qE 'bypassPermissions|enableAllProjectMcpServers|"hooks"' .claude/settings.json
 }
-ci_runs_checks() { grep -qE '^ +node: true' .github/workflows/ci.yml; }
-lockfile() { [ ! -f package.json ] || [ -f pnpm-lock.yaml ]; }
+ci_runs_checks() { grep -qE '^ +stack: (node|go|python)$' .github/workflows/ci.yml && [ -f scripts/check ]; }
+docker_updates() { [ ! -f Dockerfile ] || grep -q 'package-ecosystem: docker' .github/dependabot.yml; }
+stack_decided() { compgen -G 'docs/adr/*stack*.md' >/dev/null; }
+lockfile() {
+  { [ ! -f package.json ] || [ -f pnpm-lock.yaml ]; } && { [ ! -f pyproject.toml ] || [ -f uv.lock ]; }
+}
 codeowners() { grep -qE '\.github/' .github/CODEOWNERS && grep -q 'AGENTS.md' .github/CODEOWNERS; }
 
 case "$tier" in
@@ -87,7 +91,8 @@ check C08 "third-party actions pinned to full SHA"  actions_pinned
 check C09 "no pull_request_target or issue_comment" no_unsafe_triggers
 
 if [ "$tier" != docs ]; then
-  check C10 "package.json has a pnpm lockfile"      lockfile
+  check C10 "dependencies have a lockfile"            lockfile
+  check C20 "a Dockerfile gets Dependabot updates"    docker_updates
 fi
 if [ "$tier" = app ] || [ "$tier" = regulated ]; then
   check C11 ".env.example exists"                   test -f .env.example
@@ -95,7 +100,8 @@ if [ "$tier" = app ] || [ "$tier" = regulated ]; then
   check C13 "docs/runbooks exists"                  test -d docs/runbooks
   check C14 "docs/RELEASES.md exists"               test -f docs/RELEASES.md
   check C15 "docs/READINESS.md exists"              test -f docs/READINESS.md
-  check C18 "CI runs code checks (node: true)"      ci_runs_checks
+  check C18 "CI runs scripts/check for a named stack" ci_runs_checks
+  check C19 "stack decision recorded in docs/adr"     stack_decided
 fi
 if [ "$tier" = regulated ]; then
   check C16 "threat model and data-flow map exist"  test -f docs/security/THREAT_MODEL.md -a -f docs/security/DATA_FLOW.md
