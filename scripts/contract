@@ -10,7 +10,8 @@ today=$(date -u +%F)
 
 waived() {
   local line until
-  line=$(grep -E "id: *$1([ ,}]|$)" .iexo.yml 2>/dev/null | head -1) || true
+  case "$1" in C03|C04|C05|C09) return 1 ;; esac # these can't be waived
+  line=$(grep -vE '^[[:space:]]*#' .iexo.yml 2>/dev/null | grep -E "id: *$1([ ,}]|$)" | head -1) || true
   [ -n "$line" ] || return 1
   until=$(printf '%s' "$line" | sed -n 's/.*until: *\([0-9-]*\).*/\1/p')
   if [ -z "$until" ] || ! printf '%s' "$line" | grep -q 'why:'; then
@@ -36,9 +37,22 @@ workflows() { git ls-files '.github/workflows/*.yml' '.github/workflows/*.yaml';
 # Each check reads its input into a variable first: with pipefail, grep -q closing a pipe early reports a false failure.
 no_tracked_env() { local files; files=$(git ls-files); ! grep -E '(^|/)\.env(\..*)?$' <<<"$files" | grep -v '\.env\.example$' | grep . ; }
 no_ai_trailers() { local log; log=$(git log -50 --format=%B); ! grep -iE '^co-authored-by:.*(claude|anthropic|copilot|cursor|chatgpt|openai|gemini)|generated (with|by) .*(claude|copilot|chatgpt)' <<<"$log"; }
-no_rej_files() { local files; files=$(git ls-files); ! grep '\.rej$' <<<"$files"; }
-no_unsafe_triggers() { local f; for f in $(workflows); do grep -qE '^[[:space:]]*(pull_request_target|issue_comment)[[:space:]]*:' "$f" && return 1; done; return 0; }
-permissions_declared() { local f; for f in $(workflows); do grep -qE '^permissions:' "$f" || return 1; done; }
+no_conflict_leftovers() { local files; files=$(git ls-files); ! grep '\.rej$' <<<"$files" && ! git grep -lE '^(<{7}|>{7}) ' -- . ':!scripts/contract'; }
+no_unsafe_triggers() {
+  local f
+  for f in $(workflows); do
+    grep -vE '^[[:space:]]*#' "$f" | grep -qE '(^|[^a-z_])(pull_request_target|issue_comment)([^a-z_]|$)' && return 1
+  done
+  return 0
+}
+permissions_declared() {
+  local f
+  for f in $(workflows); do
+    grep -qE '^permissions:' "$f" || return 1
+    grep -qE 'permissions: *write-all' "$f" && return 1
+  done
+  return 0
+}
 actions_pinned() {
   local f uses
   for f in $(workflows); do
@@ -49,11 +63,11 @@ actions_pinned() {
   return 0
 }
 agent_config_safe() {
-  [ -f CLAUDE.md ] && grep -q '@AGENTS.md' CLAUDE.md || return 1
-
-  [ ! -f .mcp.json ] || return 1
-  ! grep -qE 'bypassPermissions|enableAllProjectMcpServers' .claude/settings.json 2>/dev/null
+  grep -q '@AGENTS.md' CLAUDE.md || return 1
+  [ -f .claude/settings.json ] && [ ! -f .mcp.json ] || return 1
+  ! grep -qE 'bypassPermissions|enableAllProjectMcpServers|"hooks"' .claude/settings.json
 }
+ci_runs_checks() { grep -qE '^ +node: true' .github/workflows/ci.yml; }
 lockfile() { [ ! -f package.json ] || [ -f pnpm-lock.yaml ]; }
 codeowners() { grep -qE '\.github/' .github/CODEOWNERS && grep -q 'AGENTS.md' .github/CODEOWNERS; }
 
@@ -64,10 +78,10 @@ esac
 
 check C01 "README.md and .gitignore exist"          test -f README.md -a -f .gitignore
 check C02 "AGENTS.md exists"                         test -f AGENTS.md
-check C03 "CLAUDE.md imports AGENTS.md, no bypass, no unapproved MCP" agent_config_safe
+check C03 "agent config safe: import, settings, no bypass, hooks or MCP" agent_config_safe
 check C04 "no tracked .env files"                   no_tracked_env
 check C05 "no AI trailers or branding in commits"   no_ai_trailers
-check C06 "no leftover .rej files"                  no_rej_files
+check C06 "no template conflict leftovers"          no_conflict_leftovers
 check C07 "workflows declare permissions"           permissions_declared
 check C08 "third-party actions pinned to full SHA"  actions_pinned
 check C09 "no pull_request_target or issue_comment" no_unsafe_triggers
@@ -81,6 +95,7 @@ if [ "$tier" = app ] || [ "$tier" = regulated ]; then
   check C13 "docs/runbooks exists"                  test -d docs/runbooks
   check C14 "docs/RELEASES.md exists"               test -f docs/RELEASES.md
   check C15 "docs/READINESS.md exists"              test -f docs/READINESS.md
+  check C18 "CI runs code checks (node: true)"      ci_runs_checks
 fi
 if [ "$tier" = regulated ]; then
   check C16 "threat model and data-flow map exist"  test -f docs/security/THREAT_MODEL.md -a -f docs/security/DATA_FLOW.md
