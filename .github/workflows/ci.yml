@@ -1,0 +1,10 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  ci:
+    uses: iexotech/iexo-template/.github/workflows/ci.yml@stable

@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Local safety net. It can be skipped, so server rules remain the real control.
+set -euo pipefail
+tier=$(sed -n 's/^tier: *//p' .iexo.yml)
+if [ "$tier" = app ] || [ "$tier" = regulated ]; then
+  while read -r _ _ remote_ref _; do
+    if [ "$remote_ref" = refs/heads/main ]; then
+      echo "This tier merges through a pull request. Push a branch." >&2
+      exit 1
+    fi
+  done
+fi
+bash scripts/contract
